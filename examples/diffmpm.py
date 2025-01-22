@@ -309,13 +309,150 @@ def fish(scene):
     scene.set_n_actuators(4)
 
 
+def fish2(scene):
+    # Add the top base for fish2, similar to fish
+    scene.add_rect(0.025, 0.025, 0.95, 0.1, -1, ptype=0)  # Top base
+
+    # Add the body sections for fish2 (legs and other parts)
+    scene.add_rect(0.0, 0.0, 0.025, 0.1, 0)  # Leg 1
+    scene.add_rect(0.025, 0.0, 0.025, 0.1, 1)  # Leg 2
+
+    # Add two new legs with width 0.025
+    scene.add_rect(0.125, 0.0, 0.025, 0.1, 0)  # Leg 3 (new)
+    scene.add_rect(0.15, 0.0, 0.025, 0.1, 1)  # Leg 4 (new)
+
+    scene.add_rect(0.25, 0.0, 0.025, 0.1, 2)  # Leg 5
+    scene.add_rect(0.275, 0.0, 0.025, 0.1, 3)  # Leg 6
+
+    # Set the actuators for the legs
+    scene.set_n_actuators(4)  # Adjust the number of actuators if needed
+
+
+    
+
+
+
 def robot(scene):
-    scene.set_offset(0.1, 0.03)
+    scene.set_offset(0.1, 0.03) 
     scene.add_rect(0.0, 0.1, 0.3, 0.1, -1)
-    scene.add_rect(0.0, 0.0, 0.05, 0.1, 0)
-    scene.add_rect(0.05, 0.0, 0.05, 0.1, 1)
-    scene.add_rect(0.2, 0.0, 0.05, 0.1, 2)
-    scene.add_rect(0.25, 0.0, 0.05, 0.1, 3)
+    
+    scene.add_rect(0.0, 0.0, 0.025, 0.1, 0)
+    scene.add_rect(0.025, 0.0, 0.025, 0.1, 1)
+
+    #add two legs of width 0.025 here
+    scene.add_rect(0.125, 0.0, 0.025, 0.1, 0)  # Leg 3 (new)
+    scene.add_rect(0.15, 0.0, 0.025, 0.1, 1)  # Leg 4 (new)
+
+
+    scene.add_rect(0.25, 0.0, 0.025, 0.1, 2)
+    scene.add_rect(0.275, 0.0, 0.025, 0.1, 3)
+
+
+    scene.set_n_actuators(4)
+
+
+
+def robot2(scene):
+    scene.set_offset(0.1, 0.03)
+
+    # Define parameters for the oval base (semi-major and semi-minor axes)
+    oval_width = 0.3  # Semi-major axis (horizontal size)
+    oval_height = 0.1  # Semi-minor axis (vertical size)
+    center_x = 0.15  # Center of the oval on the x-axis
+    center_y = 0.05  # Center of the oval on the y-axis
+    
+    # Number of particles for the oval base (or a set of rectangles along the oval path)
+    num_particles_oval = 100
+    angle_step = 2 * math.pi / num_particles_oval
+
+    # Generate particles in an elliptical pattern
+    for i in range(num_particles_oval):
+        angle = i * angle_step
+        x_pos = center_x + oval_width * math.cos(angle)
+        y_pos = center_y + oval_height * math.sin(angle)
+        scene.add_rect(x_pos, y_pos, 0.01, 0.01, -1, ptype=0)  # Use a small rectangle to form the oval base
+
+    # Add legs similar to the original function, with two new ones
+    scene.add_rect(0.0, 0.0, 0.025, 0.1, 0)  # Leg 1
+    scene.add_rect(0.025, 0.0, 0.025, 0.1, 1)  # Leg 2
+    scene.add_rect(0.125, 0.0, 0.025, 0.1, 0)  # Leg 3
+    scene.add_rect(0.15, 0.0, 0.025, 0.1, 1)  # Leg 4
+    scene.add_rect(0.25, 0.0, 0.025, 0.1, 2)  # Leg 5
+    scene.add_rect(0.275, 0.0, 0.025, 0.1, 3)  # Leg 6
+
+    # Set actuators for the legs
+    scene.set_n_actuators(4)  # Update this if you have more actuators
+
+
+def centipede(scene):
+    scene.set_offset(0.1, 0.03)
+    
+    # Add a larger rectangular body
+    scene.add_rect(0.0, 0.1, 0.3, 0.1, -1)  # Base body part
+    
+    # Add the original legs (4 main ones)
+    scene.add_rect(0.0, 0.0, 0.05, 0.1, 0)  # Leg 1
+    scene.add_rect(0.05, 0.0, 0.05, 0.1, 1)  # Leg 2
+    scene.add_rect(0.2, 0.0, 0.05, 0.1, 2)  # Leg 3
+    scene.add_rect(0.25, 0.0, 0.05, 0.1, 3)  # Leg 4
+    
+    # Add more tiny legs
+    tiny_leg_length = 0.025  # Make the legs smaller
+    tiny_leg_width = 0.01  # Smaller width for the tiny legs
+    tiny_leg_spacing = 0.05  # Smaller spacing between tiny legs
+    
+    num_tiny_legs = 12  # Adding 12 tiny legs along the body
+    for i in range(num_tiny_legs):
+        x_pos = 0.05 + i * tiny_leg_spacing  # Position each tiny leg along the body
+        scene.add_rect(x_pos, 0.0 - tiny_leg_length, tiny_leg_width, tiny_leg_length, 0)  # Set tiny legs
+
+    # Set actuators for the original legs
+    scene.set_n_actuators(4)
+
+def pisces(scene):
+    # Main fish body
+    scene.add_rect(0.1, 0.1, 0.7, 0.1, -1)  # Long horizontal rectangle for the body
+    
+    # Top fin
+    scene.add_rect(0.3, 0.2, 0.1, 0.05, -1)  # Smaller rectangle above the body
+    
+    # Bottom fin
+    scene.add_rect(0.3, 0.05, 0.1, 0.05, -1)  # Smaller rectangle below the body
+    
+    # Tail fins
+    scene.add_rect(0.75, 0.15, 0.05, 0.05, 0)  # Left tail fin
+    scene.add_rect(0.8, 0.1, 0.05, 0.05, 1)   # Right tail fin
+    
+    # Actuators for tail movement
+    scene.add_rect(0.8, 0.1, 0.05, 0.05, 2)  # Actuator for left tail fin
+    scene.add_rect(0.85, 0.1, 0.05, 0.05, 3)  # Actuator for right tail fin
+
+    # Set the number of actuators
+    scene.set_n_actuators(4)
+
+
+def pisces2(scene):
+    # Fluid-like background (bottom of the screen)
+    scene.add_rect(0.025, 0.025, 0.95, 0.1, -1, ptype=0)  # Fluid particles
+
+    # Main fish body
+    scene.add_rect(0.1, 0.2, 0.7, 0.1, -1)  # Long horizontal rectangle for the body
+
+    # Top fin
+    scene.add_rect(0.3, 0.3, 0.1, 0.05, -1)  # Smaller rectangle above the body
+
+    # Bottom fin
+    scene.add_rect(0.3, 0.15, 0.1, 0.05, -1)  # Smaller rectangle below the body
+
+    # Tail fins
+    scene.add_rect(0.75, 0.25, 0.05, 0.05, 0)  # Left tail fin
+    scene.add_rect(0.8, 0.2, 0.05, 0.05, 1)   # Right tail fin
+
+    # Actuators for tail movement
+    scene.add_rect(0.8, 0.2, 0.05, 0.05, 2)  # Actuator for left tail fin
+    scene.add_rect(0.85, 0.2, 0.05, 0.05, 3)  # Actuator for right tail fin
+
+    # Set the number of actuators
     scene.set_n_actuators(4)
 
 
