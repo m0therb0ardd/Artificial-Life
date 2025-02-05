@@ -5,11 +5,9 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-# initialize tai chi 
 real = ti.f32
 ti.init(default_fp=real, arch=ti.gpu, flatten_if=True)
 
-# simulation parameters
 dim = 2
 n_particles = 8192
 n_solid_particles = 0
@@ -28,8 +26,6 @@ steps = 1024
 gravity = 3.8
 target = [0.8, 0.2]
 
-
-# fields for simualation 
 scalar = lambda: ti.field(dtype=real)
 vec = lambda: ti.Vector.field(dim, dtype=real)
 mat = lambda: ti.Matrix.field(dim, dim, dtype=real)
@@ -49,63 +45,25 @@ bias = scalar()
 x_avg = vec()
 
 actuation = scalar()
-# actuation_omega = 20
-# act_strength = 4
+actuation_omega = 20
+act_strength = 4
 
-# actuation settings for swaying
-actuation_omega = 10
-act_strength = 2
-
-# global connection tracking for my coral 
-n_springs = 0 
-connections = ti.field(dtype=ti.i32, shape=(n_particles,2))
+connections = ti.field(ti.i32, shape=(n_particles, 2))  # Stores parent-child links
 
 
-
-# def allocate_fields():
-#     allocacate taichi fields before running simulation 
-
-#     global n_springs #added for coral 
-#     ti.root.dense(ti.ij, (n_actuators, n_sin_waves)).place(weights)
-#     ti.root.dense(ti.i, n_actuators).place(bias)
-
-#     ti.root.dense(ti.ij, (max_steps, n_actuators)).place(actuation)
-#     ti.root.dense(ti.i, n_particles).place(actuator_id, particle_type)
-#     ti.root.dense(ti.k, max_steps).dense(ti.l, n_particles).place(x, v, C, F)
-#     ti.root.dense(ti.ij, n_grid).place(grid_v_in, grid_m_in, grid_v_out)
-#     ti.root.place(loss, x_avg)
-
-#     ti.root.lazy_grad()
-   
 
 def allocate_fields():
-    """Ensures that all Taichi fields are allocated before use, while keeping the original structure."""
-    ti.root.dense(ti.i, n_particles).place(actuator_id, particle_type)  # Particle properties
-    ti.root.dense(ti.i, n_particles).place(x, v, C, F)  # Particle states
-
-    # 🔹 Fix: Allocate grid storage
-    ti.root.dense(ti.ij, (n_grid, n_grid)).place(grid_v_in, grid_m_in, grid_v_out)
-
-    # 🔹 Keep actuation-related allocations
-    ti.root.dense(ti.ij, (max_steps, n_actuators)).place(actuation)
-    ti.root.dense(ti.i, n_actuators).place(bias)
     ti.root.dense(ti.ij, (n_actuators, n_sin_waves)).place(weights)
+    ti.root.dense(ti.i, n_actuators).place(bias)
 
-    # 🔹 Ensure loss tracking is placed properly
+    ti.root.dense(ti.ij, (max_steps, n_actuators)).place(actuation)
+    ti.root.dense(ti.i, n_particles).place(actuator_id, particle_type)
+    ti.root.dense(ti.k, max_steps).dense(ti.l, n_particles).place(x, v, C, F)
+    ti.root.dense(ti.ij, n_grid).place(grid_v_in, grid_m_in, grid_v_out)
     ti.root.place(loss, x_avg)
 
-    # 🔹 Fix: Ensure `connections` field is allocated properly
-    ti.root.dense(ti.ij, (n_particles, 2)).place(connections)
 
-    # Keep gradient storage as in the original code
     ti.root.lazy_grad()
-
-@ti.kernel
-def add_connection(parent_id: ti.i32, child_id: ti.i32, index: ti.i32):
-    """Stores parent-child relationships for the coral connections."""
-    connections[index, 0] = parent_id
-    connections[index, 1] = child_id
-
 
 
 @ti.kernel
@@ -134,70 +92,15 @@ def clear_actuation_grad():
         actuation[t, i] = 0.0
 
 
-# @ti.kernel
-# def p2g(f: ti.i32):
-#     for p in range(n_particles):
-#         base = ti.cast(x[f, p] * inv_dx - 0.5, ti.i32)
-#         fx = x[f, p] * inv_dx - ti.cast(base, ti.i32)
-#         w = [0.5 * (1.5 - fx)**2, 0.75 - (fx - 1)**2, 0.5 * (fx - 0.5)**2]
-#         new_F = (ti.Matrix.diag(dim=2, val=1) + dt * C[f, p]) @ F[f, p]
-#         J = (new_F).determinant()
-#         if particle_type[p] == 0:  # fluid
-#             sqrtJ = ti.sqrt(J)
-#             new_F = ti.Matrix([[sqrtJ, 0], [0, sqrtJ]])
-
-#         F[f + 1, p] = new_F
-#         r, s = ti.polar_decompose(new_F)
-
-#         act_id = actuator_id[p]
-
-#         act = actuation[f, ti.max(0, act_id)] * act_strength
-#         if act_id == -1:
-#             act = 0.0
-#         # ti.print(act)
-
-#         A = ti.Matrix([[0.0, 0.0], [0.0, 1.0]]) * act
-#         cauchy = ti.Matrix([[0.0, 0.0], [0.0, 0.0]])
-#         mass = 0.0
-#         # if particle_type[p] == 0:
-#         #     mass = 4
-#         #     cauchy = ti.Matrix([[1.0, 0.0], [0.0, 0.1]]) * (J - 1) * E
-#         # else:
-#         #     mass = 1
-#         #     cauchy = 2 * mu * (new_F - r) @ new_F.transpose() + \
-#         #              ti.Matrix.diag(2, la * (J - 1) * J)
-
-#         if particle_type[p] == 0:  # fluid-like
-#             mass = 3
-#             cauchy = ti.Matrix([[0.5, 0.0], [0.0, 0.05]]) * (J - 1) * E  # Softer
-#         else:  # more rigid base
-#             mass = 1
-#             cauchy = 2 * mu * (new_F - r) @ new_F.transpose() + ti.Matrix.diag(2, la * (J - 1) * J)
-
-
-#         cauchy += new_F @ A @ new_F.transpose()
-#         stress = -(dt * p_vol * 4 * inv_dx * inv_dx) * cauchy
-#         affine = stress + mass * C[f, p]
-#         for i in ti.static(range(3)):
-#             for j in ti.static(range(3)):
-#                 offset = ti.Vector([i, j])
-#                 dpos = (ti.cast(ti.Vector([i, j]), real) - fx) * dx
-#                 weight = w[i][0] * w[j][1]
-#                 grid_v_in[base +
-#                           offset] += weight * (mass * v[f, p] + affine @ dpos)
-#                 grid_m_in[base + offset] += weight * mass
-
 @ti.kernel
 def p2g(f: ti.i32):
-    # particle to grid transfer step with spring like connections 
     for p in range(n_particles):
         base = ti.cast(x[f, p] * inv_dx - 0.5, ti.i32)
         fx = x[f, p] * inv_dx - ti.cast(base, ti.i32)
         w = [0.5 * (1.5 - fx)**2, 0.75 - (fx - 1)**2, 0.5 * (fx - 0.5)**2]
-
         new_F = (ti.Matrix.diag(dim=2, val=1) + dt * C[f, p]) @ F[f, p]
         J = (new_F).determinant()
-        if particle_type[p] == 0:  # Soft material
+        if particle_type[p] == 0:  # fluid
             sqrtJ = ti.sqrt(J)
             new_F = ti.Matrix([[sqrtJ, 0], [0, sqrtJ]])
 
@@ -205,30 +108,33 @@ def p2g(f: ti.i32):
         r, s = ti.polar_decompose(new_F)
 
         act_id = actuator_id[p]
-        act = actuation[f, ti.max(0, act_id)] * act_strength if act_id != -1 else 0.0
+
+        act = actuation[f, ti.max(0, act_id)] * act_strength
+        if act_id == -1:
+            act = 0.0
+        # ti.print(act)
 
         A = ti.Matrix([[0.0, 0.0], [0.0, 1.0]]) * act
-        mass = 3 if particle_type[p] == 0 else 1  # Softer for coral tips
-
-        # Apply spring-like forces for connectivity
-        for i in range(n_springs):
-            parent = connections[i, 0]
-            child = connections[i, 1]
-            if 0 <= parent < n_particles and 0 <= child < n_particles:
-                rest_length = 0.1  # Natural branch length
-                force_strength = 0.5  # Controls flexibility
-
-                displacement = x[f, child] - x[f, parent]
-                current_length = displacement.norm()
-                if current_length > 1e-5:
-                    stretch = (current_length - rest_length) * force_strength
-                    force = (stretch / current_length) * displacement
-
-                    # Apply opposite forces for stability
-                    v[f, parent] -= force * dt
-                    v[f, child] += force * dt
-
-       
+        cauchy = ti.Matrix([[0.0, 0.0], [0.0, 0.0]])
+        mass = 0.0
+        if particle_type[p] == 0:
+            mass = 4
+            cauchy = ti.Matrix([[1.0, 0.0], [0.0, 0.1]]) * (J - 1) * E
+        else:
+            mass = 1
+            cauchy = 2 * mu * (new_F - r) @ new_F.transpose() + \
+                     ti.Matrix.diag(2, la * (J - 1) * J)
+        cauchy += new_F @ A @ new_F.transpose()
+        stress = -(dt * p_vol * 4 * inv_dx * inv_dx) * cauchy
+        affine = stress + mass * C[f, p]
+        for i in ti.static(range(3)):
+            for j in ti.static(range(3)):
+                offset = ti.Vector([i, j])
+                dpos = (ti.cast(ti.Vector([i, j]), real) - fx) * dx
+                weight = w[i][0] * w[j][1]
+                grid_v_in[base +
+                          offset] += weight * (mass * v[f, p] + affine @ dpos)
+                grid_m_in[base + offset] += weight * mass
 
 
 bound = 3
@@ -295,22 +201,15 @@ def g2p(f: ti.i32):
         C[f + 1, p] = new_C
 
 
-# @ti.kernel
-# def compute_actuation(t: ti.i32):
-#     for i in range(n_actuators):
-#         act = 0.0
-#         for j in ti.static(range(n_sin_waves)):
-#             act += weights[i, j] * ti.sin(actuation_omega * t * dt +
-#                                           2 * math.pi / n_sin_waves * j)
-#         act += bias[i]
-#         actuation[t, i] = ti.tanh(act)
-
 @ti.kernel
 def compute_actuation(t: ti.i32):
     for i in range(n_actuators):
-        act = ti.sin(actuation_omega * t * dt)  # Smooth oscillation
-        actuation[t, i] = ti.tanh(act * act_strength)
-
+        act = 0.0
+        for j in ti.static(range(n_sin_waves)):
+            act += weights[i, j] * ti.sin(actuation_omega * t * dt +
+                                          2 * math.pi / n_sin_waves * j)
+        act += bias[i]
+        actuation[t, i] = ti.tanh(act)
 
 
 @ti.kernel
@@ -367,6 +266,9 @@ class Scene:
         self.particle_type = []
         self.offset_x = 0
         self.offset_y = 0
+        self.connections = []  # Stores parent-child links for coral branches
+        self.n_springs = 0  # Track number of coral connections
+
 
     def add_rect(self, x, y, w, h, actuation, ptype=1):
         if ptype == 0:
@@ -401,6 +303,15 @@ class Scene:
     def set_n_actuators(self, n_act):
         global n_actuators
         n_actuators = n_act
+
+    def add_connection(self, parent_id, child_id):
+        """
+        Adds a connection (like a spring) between two particles to keep them connected.
+        """
+        if parent_id >= 0 and child_id >= 0:
+            self.connections.append((parent_id, child_id))
+            self.n_springs += 1  # Use self.n_springs instead of a global variable
+
 
 
 def fish(scene):
@@ -559,34 +470,42 @@ def pisces2(scene):
     # Set the number of actuators
     scene.set_n_actuators(4)
 
-def grow_coral(scene, depth=4, base_x=0.5, base_y=0.1, segment_length=0.1):
-    """Recursively generates a branching coral structure."""
-
+def grow_coral(scene, depth=3, angle_variation=0.3, base_x=0.5, base_y=0.1, segment_length=0.1):
+    """
+    Generates a simple branching coral structure.
+    """
     def grow_branch(x, y, angle, depth, parent_id):
         if depth == 0:
             return
 
-        # Calculate new endpoint with slight randomness for organic shape
-        new_x = x + segment_length * math.cos(angle + np.random.uniform(-0.1, 0.1))
-        new_y = y + segment_length * math.sin(angle + np.random.uniform(-0.1, 0.1))
+        # Compute next segment position
+        new_x = x + segment_length * math.cos(angle)
+        new_y = y + segment_length * math.sin(angle)
 
-        # Alternate actuator assignment for motion variation
+        # Assign actuator to branches for swaying later
         actuator = depth % 4  
+
+        # Create branch segment
         scene.add_rect(x, y, 0.02, segment_length, actuator)
 
-        new_id = len(scene.x) - 1  # Track last added particle
-        global n_springs
-        add_connection(parent_id, new_id, n_springs)  # Connect to parent
-        n_springs += 1
+        # Get the latest particle ID
+        new_id = len(scene.x) - 1  
 
-        # Recursively grow two branches
-        grow_branch(new_x, new_y, angle + 0.3, depth - 1, new_id)
-        grow_branch(new_x, new_y, angle - 0.3, depth - 1, new_id)
+        # Connect this branch to its parent
+        scene.add_connection(parent_id, new_id)
 
-    root_id = len(scene.x)  # Root node
+        # Recursively grow branches with slight variation
+        grow_branch(new_x, new_y, angle + angle_variation, depth - 1, new_id)
+        grow_branch(new_x, new_y, angle - angle_variation, depth - 1, new_id)
+
+    # Start coral growth from base
+    root_id = len(scene.x)  
     grow_branch(base_x, base_y, math.pi / 2, depth, root_id)
 
     scene.set_n_actuators(4)
+
+
+
 
 gui = ti.GUI("Differentiable MPM", (640, 640), background_color=0xFFFFFF)
 
@@ -613,7 +532,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--iters', type=int, default=100)
     options = parser.parse_args()
-   
+
     # initialization
     scene = Scene()
     grow_coral (scene)
